@@ -429,7 +429,10 @@ def calculate_gantt_data(start_date, sop_date, phases):
     start = datetime.strptime(start_date, "%Y-%m-%d")
     end = datetime.strptime(sop_date, "%Y-%m-%d")
     total_days = (end - start).days
-    
+    # 防止 start_date == sop_date 时出现除零错误
+    if total_days <= 0:
+        total_days = 1
+
     today = datetime.now()
     
     # 生成时间轴

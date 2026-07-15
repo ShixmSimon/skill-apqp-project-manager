@@ -79,19 +79,30 @@ author: org-jaxjwo0r
 #### 3.1 生成FMEA文档
 
 ```bash
+# 最简用法：生成带一个占位行的 DFMEA 模板
 python scripts/generate_fmea.py \
   --type dfmea \
   --project "产品A项目" \
-  --output output/fmea_report.md \
-  --severity 1-10 \
-  --severity_criteria "高-影响安全/法规;中-影响功能;低-影响舒适"
+  --output output/fmea_report.md
+
+# 带入真实数据（data 为 FMEA 条目 JSON 数组）并指定负责人与 RPN 阈值
+python scripts/generate_fmea.py \
+  --type dfmea \
+  --project "产品A项目" \
+  --data data/fmea_items.json \
+  --owner "张三" \
+  --rpn-threshold 100 \
+  --output output/fmea_report.md
 ```
 
 参数说明:
-- `--type`: dfmea(设计FMEA) 或 pfmea(过程FMEA)
-- `--project`: 项目名称
-- `--output`: 输出文件路径
-- `--severity`: 严重度评分标准(可自定义)
+- `--type`: dfmea(设计FMEA) 或 pfmea(过程FMEA)，必填
+- `--project`: 项目名称，必填
+- `--output`: 输出文件路径，必填
+- `--data`: FMEA 数据 JSON 文件路径(可选)；不传则生成占位模板
+- `--owner` / `--designer` / `--quality-engineer` / `--process-engineer`: 团队成员(可选)
+- `--rpn-threshold`: 高 RPN 阈值，默认 100(可选)
+- `--version` / `--date`: 文档版本与日期(可选)
 
 生成内容包含:项目信息表、团队成员、严重度/频度/探测度评分准则、RPN计算逻辑、风险矩阵、改进建议
 
@@ -100,16 +111,21 @@ python scripts/generate_fmea.py \
 ```bash
 python scripts/generate_control_plan.py \
   --project "产品A项目" \
-  --process_flow "refs/process_flow.md" \
-  --fmea_ref "output/fmea_report.md" \
+  --data data/control_plan_items.json \
+  --customer "客户A" \
+  --part-number "PN-12345" \
+  --author "李四" \
+  --reviewer "王五" \
   --output output/control_plan.md
 ```
 
 参数说明:
-- `--project`: 项目名称
-- `--process_flow`: 过程流程图文件路径
-- `--fmea_ref`: FMEA报告引用(用于识别特殊特性)
-- `--output`: 输出文件路径
+- `--project`: 项目名称，必填
+- `--output`: 输出文件路径，必填
+- `--data`: 控制计划条目 JSON 文件路径(可选)；不传则生成占位模板
+- `--customer` / `--part-number` / `--part-name` / `--company-name` / `--plan-number`: 表头信息(可选)
+- `--author` / `--reviewer`: 编制人/审核人(可选)
+- 注意:控制计划数据来自 `--data` JSON，**不会**自动读取 FMEA；特殊特性需在数据中用 `special_chars` 字段标明(SC/CC/KCC/KPC)
 
 生成内容包含:控制计划表头、产品/过程特殊特性、关键工序控制参数、测量系统要求、不良处理方式
 
@@ -118,7 +134,7 @@ python scripts/generate_control_plan.py \
 ```bash
 python scripts/generate_ppap.py \
   --level 3 \
-  --submission_type "首次提交" \
+  --submission-type "首次提交" \
   --customer "客户A" \
   --part_number "PN-12345" \
   --output output/ppap_checklist.json
@@ -126,7 +142,7 @@ python scripts/generate_ppap.py \
 
 参数说明:
 - `--level`: PPAP提交等级(1-5)，默认3
-- `--submission_type`: 提交类型(首次/重新/设计变更)
+- `--submission-type`: 提交类型(首次/重新/设计变更)
 - `--customer`: 客户名称
 - `--part_number`: 零件号
 - `--output`: 输出清单JSON路径
@@ -136,20 +152,41 @@ python scripts/generate_ppap.py \
 #### 3.4 生成甘特图
 
 ```bash
+# 方式一：不传 --phases，使用内置的 APQP 五阶段默认计划
 python scripts/generate_gantt.py \
   --project "产品A项目" \
-  --phases refs/apqp_phases.md \
-  --start_date 2024-01-01 \
-  --sop_date 2024-06-01 \
+  --start-date 2024-01-01 \
+  --sop-date 2024-06-01 \
+  --output output/gantt.html
+
+# 方式二：传入自定义阶段 JSON（结构见下）
+python scripts/generate_gantt.py \
+  --project "产品A项目" \
+  --phases data/phases.json \
+  --start-date 2024-01-01 \
+  --sop-date 2024-06-01 \
   --output output/gantt.html
 ```
 
 参数说明:
-- `--project`: 项目名称
-- `--phases`: APQP阶段定义文件
-- `--start_date`: 项目开始日期
-- `--sop_date`: 量产开始日期目标
-- `--output`: 输出HTML甘特图路径
+- `--project`: 项目名称，必填
+- `--start-date`: 项目开始日期(YYYY-MM-DD)，必填
+- `--sop-date`: 量产开始(SOP)目标日期，必填
+- `--output`: 输出 HTML 甘特图路径，必填
+- `--phases`: 阶段定义 **JSON 文件**(可选)；**注意是 JSON 不是 Markdown**，省略则使用内置默认五阶段
+
+`--phases` JSON 结构示例:
+```json
+[
+  {
+    "name": "阶段1: 策划与定义",
+    "tasks": [
+      {"name": "项目立项", "start": "2024-01-01", "end": "2024-01-15"},
+      {"name": "阶段1评审", "start": "2024-01-15", "end": "2024-01-15", "type": "milestone"}
+    ]
+  }
+]
+```
 
 生成内容包含:交互式甘特图、阶段里程碑标记、进度百分比显示、关键路径标识
 
@@ -164,8 +201,8 @@ python scripts/generate_gantt.py \
 
 ```bash
 python scripts/analyze_risk.py \
-  --fmea_files "output/fmea_dfmea.md,output/fmea_pfmea.md" \
-  --control_plan "output/control_plan.md" \
+  --fmea-files "output/fmea_dfmea.md,output/fmea_pfmea.md" \
+  --control-plan "output/control_plan.md" \
   --output output/risk_analysis.md
 ```
 
@@ -197,11 +234,11 @@ python scripts/analyze_risk.py \
 
 ## 资源索引
 
-- 脚本:见 [scripts/generate_fmea.py](scripts/generate_fmea.py)（用途:生成DFMEA/PFMEA文档；参数:type/project/output/severity）
-- 脚本:见 [scripts/generate_control_plan.py](scripts/generate_control_plan.py)（用途:生成控制计划；参数:project/process_flow/fmea_ref/output）
-- 脚本:见 [scripts/generate_ppap.py](scripts/generate_ppap.py)（用途:生成PPAP文件清单；参数:level/submission_type/customer/part_number/output）
-- 脚本:见 [scripts/generate_gantt.py](scripts/generate_gantt.py)（用途:生成甘特图HTML；参数:project/phases/start_date/sop_date/output）
-- 脚本:见 [scripts/analyze_risk.py](scripts/analyze_risk.py)（用途:综合风险分析；参数:fmea_files/control_plan/output）
+- 脚本:见 [scripts/generate_fmea.py](scripts/generate_fmea.py)（用途:生成DFMEA/PFMEA文档；参数:type/project/output，可选:data/owner/designer/quality-engineer/process-engineer/rpn-threshold/version/date）
+- 脚本:见 [scripts/generate_control_plan.py](scripts/generate_control_plan.py)（用途:生成控制计划；参数:project/output，可选:data/customer/part-number/author/reviewer 等表头信息）
+- 脚本:见 [scripts/generate_ppap.py](scripts/generate_ppap.py)（用途:生成PPAP文件清单；参数:level/submission-type/customer/part_number/output）
+- 脚本:见 [scripts/generate_gantt.py](scripts/generate_gantt.py)（用途:生成甘特图HTML；参数:project/start-date/sop-date/output，可选:phases JSON）
+- 脚本:见 [scripts/analyze_risk.py](scripts/analyze_risk.py)（用途:综合风险分析；参数:fmea-files/control-plan/output，可选:project）
 - 参考:见 [references/apqp_phases.md](references/apqp_phases.md)（何时读取:需要详细阶段输出清单、节点检查表）
 - 参考:见 [references/iatf16949_knowledge.md](references/iatf16949_knowledge.md)（何时读取:查询IATF 16949标准要求、审核要点）
 - 参考:见 [references/best_practices.md](references/best_practices.md)（何时读取:获取行业最佳实践、避免常见错误）

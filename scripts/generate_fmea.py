@@ -90,7 +90,7 @@ FMEA_TEMPLATE = """# {{ fmea_type }} - {{ project_name }}
 
 {% set high_rpn = [] %}
 {% for item in items %}
-{% if item.severity * item.occurrence * item.detection_d > rpn_threshold %}
+{% if item.rpn > rpn_threshold %}
 {% set _ = high_rpn.append(item) %}
 {% endif %}
 {% endfor %}
@@ -98,8 +98,8 @@ FMEA_TEMPLATE = """# {{ fmea_type }} - {{ project_name }}
 {% if high_rpn %}
 | 排名 | 项号 | 功能 | 失效模式 | RPN | 优先级 |
 |:----:|:----:|:-----|:--------|:---:|:------:|
-{% for item in high_rpn|sort(attribute='severity * occurrence * detection_d', reverse=True) %}
-| {{ loop.index }} | {{ loop.index }} | {{ item.function }} | {{ item.failure_mode }} | {{ item.severity * item.occurrence * item.detection_d }} | {{ '高' if item.severity * item.occurrence * item.detection_d > 200 else '中' }} |
+{% for item in high_rpn|sort(attribute='rpn', reverse=True) %}
+| {{ loop.index }} | {{ item.index }} | {{ item.function }} | {{ item.failure_mode }} | {{ item.rpn }} | {{ '高' if item.rpn > 200 else '中' }} |
 {% endfor %}
 {% else %}
 无高RPN项（当前RPN均低于{{ rpn_threshold }}）
@@ -164,7 +164,12 @@ def generate_fmea(args):
                 items = json.load(f)
         except:
             items = DEFAULT_ITEMS.copy()
-    
+
+    # 为每个条目补充序号(index)与RPN，供高RPN排序与展示使用
+    for idx, it in enumerate(items, start=1):
+        it['index'] = idx
+        it['rpn'] = it.get('severity', 5) * it.get('occurrence', 5) * it.get('detection_d', 5)
+
     # 创建输出目录
     os.makedirs(os.path.dirname(args.output) if os.path.dirname(args.output) else '.', exist_ok=True)
     
